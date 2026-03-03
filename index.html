@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Study Timer (Per Subject, Daily Summary)</title>
+    <style>
+      :root {
+        --bd: #111;
+        --bg: #fff;
+        --muted: #666;
+        --pad: 14px;
+      }
+      body {
+        margin: 0;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Noto Sans KR",
+          Arial;
+        background: #f6f6f6;
+        color: #111;
+      }
+      .wrap {
+        max-width: 820px;
+        margin: 28px auto;
+        padding: 0 14px;
+      }
+      .card {
+        background: var(--bg);
+        border: 2px solid var(--bd);
+        border-radius: 16px;
+        padding: var(--pad);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 10px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      select,
+      input,
+      button {
+        font-size: 14px;
+      }
+      select,
+      input {
+        padding: 10px 12px;
+        border: 2px solid var(--bd);
+        border-radius: 12px;
+        background: #fff;
+        min-height: 42px;
+      }
+      button {
+        padding: 10px 12px;
+        border: 2px solid var(--bd);
+        border-radius: 12px;
+        background: #fff;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #111;
+        color: #fff;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .timer {
+        font-size: 44px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        padding: 10px 0;
+        margin: 10px 0 6px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      @media (min-width: 760px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #ddd;
+        padding: 8px 6px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: #333;
+        font-weight: 700;
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 3px 8px;
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        font-size: 12px;
+        color: #333;
+        background: #fafafa;
+      }
+
+      .bar {
+        height: 10px;
+        border: 1px solid #111;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .bar > div {
+        height: 100%;
+        width: 0%;
+        background: #111;
+      }
+
+      .danger {
+        border-color: #b00020;
+        color: #b00020;
+      }
+      .right {
+        margin-left: auto;
+      }
+      .small {
+        font-size: 12px;
+      }
+      .kbd {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", monospace;
+        border: 1px solid #bbb;
+        border-bottom-width: 2px;
+        padding: 2px 6px;
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      /* ✅ 간단 모달 */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+        z-index: 9999;
+      }
+      .modal {
+        width: min(560px, 100%);
+        background: #fff;
+        border: 2px solid #111;
+        border-radius: 16px;
+        padding: 14px;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+      }
+      .modal h2 {
+        font-size: 16px;
+        margin: 0 0 10px;
+      }
+      .modal .grid2 {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      @media (min-width: 520px) {
+        .modal .grid2 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .modal label {
+        display: block;
+        font-size: 12px;
+        color: #333;
+        margin-bottom: 6px;
+      }
+      .modal .actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .warn {
+        font-size: 12px;
+        color: #b00020;
+        margin-top: 6px;
+      }
+
+      /* ✅ Day Timeline (24h) */
+      .timelineWrap {
+        position: relative;
+        height: 720px; /* 24h * 30px */
+        border: 1px solid #ddd;
+        border-radius: 14px;
+        overflow: auto;
+        background: #fff;
+      }
+      .timelineGrid {
+        position: relative;
+        height: 720px;
+      }
+      .tHour {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 0;
+        border-top: 1px solid #eee;
+      }
+      .tHourLabel {
+        position: absolute;
+        left: 8px;
+        transform: translateY(-9px);
+        font-size: 12px;
+        color: #666;
+        background: #fff;
+        padding: 0 6px;
+      }
+      .tEvent {
+        position: absolute;
+        border: 1px solid rgba(0, 0, 0, 0.25);
+        border-radius: 12px;
+        padding: 8px 10px;
+        box-sizing: border-box;
+        overflow: hidden;
+        cursor: pointer;
+        min-height: 28px;
+      }
+      .tEvent .tTitle {
+        font-weight: 800;
+        font-size: 12px;
+        line-height: 1.15;
+        margin-bottom: 4px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .tEvent .tMeta {
+        font-size: 12px;
+        opacity: 0.9;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .tLegend {
+        font-size: 12px;
+        color: #666;
+        margin-top: 6px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="row" style="justify-content: space-between">
+          <h1>Study Timer</h1>
+          <div class="muted" id="todayLabel"></div>
+        </div>
+
+        <div class="row">
+          <label class="muted" for="subject">과목</label>
+          <select id="subject"></select>
+
+          <input
+            id="newSubject"
+            placeholder="과목 추가 (예: 통계, R, 영어)"
+            style="flex: 1; min-width: 220px"
+          />
+          <button id="addSubject">추가</button>
+
+          <button
+            class="right danger"
+            id="resetToday"
+            title="조회 날짜 기록 + 타이머까지 초기화"
+          >
+            조회날짜 초기화
+          </button>
+        </div>
+
+        <!-- ✅ 날짜별 조회 UI + ✅ 백업/복구 -->
+        <div class="row" style="margin-top: 8px">
+          <label class="muted" for="dayPick">조회 날짜</label>
+          <input id="dayPick" type="date" />
+          <button id="goToday">오늘</button>
+
+          <button
+            id="exportData"
+            class="right"
+            title="현재 데이터(과목/세션/색상)를 파일로 저장"
+          >
+            백업 내보내기
+          </button>
+          <input
+            id="importFile"
+            type="file"
+            accept="application/json"
+            style="display: none"
+          />
+          <button id="importData" title="백업 JSON을 불러와 복구">
+            백업 불러오기
+          </button>
+        </div>
+
+        <div class="timer" id="clock">00:00:00</div>
+        <div class="row">
+          <button class="primary" id="start">시작</button>
+          <button id="pause" disabled>일시정지</button>
+          <button id="finish" disabled>완료(저장)</button>
+          <span class="muted small"
+            >팁: <span class="kbd">시작</span> → 공부 →
+            <span class="kbd">완료</span> 누르면 세션이 저장됩니다. (자정 넘기면
+            자동으로 날짜별로 쪼개져 저장됨)</span
+          >
+        </div>
+
+        <div class="grid">
+          <div class="card" style="border-width: 1px; border-radius: 14px">
+            <div class="row" style="justify-content: space-between">
+              <div>
+                <div class="muted">선택한 날짜 총 공부시간</div>
+                <div style="font-size: 24px; font-weight: 800" id="totalToday">
+                  00:00:00
+                </div>
+              </div>
+              <div style="text-align: right">
+                <div class="muted">가장 오래 한 과목</div>
+                <div style="font-size: 14px; font-weight: 700" id="topSubject">
+                  -
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 10px">
+              <div class="muted" style="margin-bottom: 6px">과목별 비중</div>
+              <div id="breakdown"></div>
+            </div>
+          </div>
+
+          <div class="card" style="border-width: 1px; border-radius: 14px">
+            <div class="row" style="justify-content: space-between">
+              <div class="muted">선택한 날짜 세션 로그</div>
+              <button
+                id="clearSessions"
+                class="danger"
+                title="선택한 날짜 세션 로그 전체 삭제"
+              >
+                전체 삭제
+              </button>
+            </div>
+            <div style="max-height: 260px; overflow: auto; margin-top: 8px">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 22%">시간</th>
+                    <th style="width: 30%">과목</th>
+                    <th style="width: 18%">공부</th>
+                    <th style="width: 14%">수정</th>
+                    <th style="width: 16%">삭제</th>
+                  </tr>
+                </thead>
+                <tbody id="sessions"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ✅ Day Timeline (단 1개만 유지) -->
+        <div
+          class="card"
+          style="border-width: 1px; border-radius: 14px; margin-top: 12px"
+        >
+          <div class="row" style="justify-content: space-between">
+            <div class="muted">선택한 날짜 타임라인 (24h)</div>
+            <div class="muted small" id="timelineLegend"></div>
+          </div>
+
+          <div class="timelineWrap" style="margin-top: 8px">
+            <div class="timelineGrid" id="timelineGrid"></div>
+          </div>
+
+          <div class="tLegend">
+            팁: 블록을 누르면 해당 세션 “수정” 모달이 열립니다.
+          </div>
+        </div>
+
+        <div class="muted" style="margin-top: 10px">
+          저장 방식: 이 브라우저의 localStorage. (다른 PC/브라우저로는 자동
+          동기화 안 됨) ·
+          <span class="kbd">백업 내보내기</span>로 파일 저장해두면 언제든 복구
+          가능
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ 세션 시간 수정 모달 -->
+    <div class="modal-backdrop" id="editBackdrop" aria-hidden="true">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="editTitle"
+      >
+        <h2 id="editTitle">세션 수정</h2>
+
+        <div class="grid2">
+          <div>
+            <label for="editSubject">과목</label>
+            <input id="editSubject" type="text" placeholder="예: 영어" />
+            <div class="hint">
+              세션에 저장된 과목명만 바뀝니다(과거 세션엔 영향 없음)
+            </div>
+          </div>
+          <div>
+            <label for="editDate">날짜</label>
+            <input id="editDate" type="date" />
+            <div class="hint">필요하면 다른 날짜로 옮길 수 있습니다</div>
+          </div>
+          <div>
+            <label for="editStart">시작 시간</label>
+            <input id="editStart" type="time" step="60" />
+          </div>
+          <div>
+            <label for="editEnd">종료 시간</label>
+            <input id="editEnd" type="time" step="60" />
+          </div>
+        </div>
+
+        <div class="hint">
+          규칙: 같은 날짜 안에서만 계산됩니다. (자정 넘으면 2개 세션으로 나눠서
+          수정하는 걸 추천)
+        </div>
+        <div class="warn" id="editWarn" style="display: none"></div>
+
+        <div class="actions">
+          <button id="editCancel">취소</button>
+          <button class="primary" id="editSave">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        // --------- Storage Keys ----------
+        const KEY_SUBJECTS = "st_subjects_v1";
+        const KEY_SESSIONS = "st_sessions_v1"; // array of {id,date,subject,startISO,endISO,ms}
+        const KEY_COLORS = "st_subject_colors_v1"; // { [subjectName]: "#RRGGBB" }
+
+        // --------- Helpers ----------
+        const pad = (n) => String(n).padStart(2, "0");
+        const fmtHMS = (ms) => {
+          ms = Math.max(0, Math.floor(ms));
+          const s = Math.floor(ms / 1000);
+          const hh = Math.floor(s / 3600);
+          const mm = Math.floor((s % 3600) / 60);
+          const ss = s % 60;
+          return `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+        };
+
+        const dayKeyFromMs = (ms) => {
+          const d = new Date(ms);
+          const y = d.getFullYear();
+          const m = pad(d.getMonth() + 1);
+          const day = pad(d.getDate());
+          return `${y}-${m}-${day}`;
+        };
+        const todayKey = () => dayKeyFromMs(Date.now());
+
+        const load = (k, fallback) => {
+          try {
+            const raw = localStorage.getItem(k);
+            if (!raw) return fallback;
+            return JSON.parse(raw);
+          } catch {
+            return fallback;
+          }
+        };
+        const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+        const makeId = () =>
+          crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(Date.now()) + Math.random().toString(16).slice(2);
+
+        // ✅ 색상 팔레트
+        const PALETTE = [
+          "#e11d48",
+          "#f97316",
+          "#eab308",
+          "#16a34a",
+          "#06b6d4",
+          "#2563eb",
+          "#7c3aed",
+          "#a855f7",
+          "#db2777",
+          "#0ea5e9",
+          "#84cc16",
+          "#f59e0b",
+        ];
+
+        function normalizeHex(c) {
+          if (!c) return null;
+          const s = String(c).trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+          return null;
+        }
+
+        function pickColorForSubject(subject, colors) {
+          if (colors[subject]) return colors[subject];
+          const used = new Set(
+            Object.values(colors).map((x) => String(x).toLowerCase()),
+          );
+          const candidate =
+            PALETTE.find((c) => !used.has(c.toLowerCase())) ||
+            PALETTE[Object.keys(colors).length % PALETTE.length];
+          colors[subject] = candidate;
+          save(KEY_COLORS, colors);
+          return candidate;
+        }
+
+        function colorOf(subject) {
+          return pickColorForSubject(subject, subjectColors);
+        }
+
+        function textColorForBg(hex) {
+          const c = normalizeHex(hex);
+          if (!c) return "#111";
+          const r = parseInt(c.slice(1, 3), 16);
+          const g = parseInt(c.slice(3, 5), 16);
+          const b = parseInt(c.slice(5, 7), 16);
+          const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+          return lum < 0.55 ? "#fff" : "#111";
+        }
+
+        // ✅ 자정 기준으로 세션을 날짜별로 분할 저장
+        function splitByMidnight(subject, startMs, endMs) {
+          const out = [];
+          let cur = startMs;
+
+          while (cur < endMs) {
+            const d = new Date(cur);
+            const midnight = new Date(
+              d.getFullYear(),
+              d.getMonth(),
+              d.getDate() + 1,
+            ).getTime();
+
+            const segEnd = Math.min(midnight, endMs);
+            const segMs = segEnd - cur;
+
+            out.push({
+              id: makeId(),
+              date: dayKeyFromMs(cur),
+              subject,
+              startISO: new Date(cur).toISOString(),
+              endISO: new Date(segEnd).toISOString(),
+              ms: segMs,
+            });
+
+            cur = segEnd;
+          }
+          return out;
+        }
+
+        // time utils for edit
+        const parseHM = (hhmm) => {
+          if (!hhmm || !/^\d\d:\d\d$/.test(hhmm)) return null;
+          const [h, m] = hhmm.split(":").map((x) => parseInt(x, 10));
+          if (Number.isNaN(h) || Number.isNaN(m)) return null;
+          if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+          return { h, m };
+        };
+
+        const isoToLocalHM = (iso) => {
+          const d = new Date(iso);
+          return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+
+        const isoToLocalDate = (iso) => {
+          const d = new Date(iso);
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        };
+
+        const buildISOFromLocal = (dateStr, hmStr) => {
+          const hm = parseHM(hmStr);
+          if (!hm) return null;
+          const [y, mo, da] = dateStr.split("-").map((x) => parseInt(x, 10));
+          const dt = new Date(y, mo - 1, da, hm.h, hm.m, 0, 0);
+          return dt.toISOString();
+        };
+
+        const msBetweenLocal = (dateStr, startHM, endHM) => {
+          const sISO = buildISOFromLocal(dateStr, startHM);
+          const eISO = buildISOFromLocal(dateStr, endHM);
+          if (!sISO || !eISO) return null;
+          const s = new Date(sISO).getTime();
+          const e = new Date(eISO).getTime();
+          return e - s;
+        };
+
+        // --------- UI ----------
+        const el = (id) => document.getElementById(id);
+
+        const subjectSel = el("subject");
+        const newSubject = el("newSubject");
+        const addSubjectBtn = el("addSubject");
+        const startBtn = el("start");
+        const pauseBtn = el("pause");
+        const finishBtn = el("finish");
+        const clock = el("clock");
+        const todayLabel = el("todayLabel");
+        const totalToday = el("totalToday");
+        const topSubject = el("topSubject");
+        const breakdown = el("breakdown");
+        const sessionsTbody = el("sessions");
+        const clearSessionsBtn = el("clearSessions");
+        const resetTodayBtn = el("resetToday");
+
+        const dayPick = el("dayPick");
+        const goTodayBtn = el("goToday");
+
+        // ✅ Backup UI
+        const exportBtn = el("exportData");
+        const importBtn = el("importData");
+        const importFile = el("importFile");
+
+        // edit modal UI
+        const editBackdrop = el("editBackdrop");
+        const editSubject = el("editSubject");
+        const editDate = el("editDate");
+        const editStart = el("editStart");
+        const editEnd = el("editEnd");
+        const editWarn = el("editWarn");
+        const editCancel = el("editCancel");
+        const editSave = el("editSave");
+
+        // timeline
+        const timelineGrid = el("timelineGrid");
+        const timelineLegend = el("timelineLegend");
+
+        // --------- State ----------
+        let subjects = load(KEY_SUBJECTS, ["할 일 정리", "영어", "수학"]);
+        let sessions = load(KEY_SESSIONS, []);
+        let subjectColors = load(KEY_COLORS, {});
+
+        subjects.forEach((s) => pickColorForSubject(s, subjectColors));
+        save(KEY_COLORS, subjectColors);
+
+        let running = false;
+        let startAt = null;
+        let elapsedBefore = 0;
+        let tickTimer = null;
+
+        let viewDay = todayKey();
+        let editingId = null;
+
+        function renderSubjects() {
+          subjectSel.innerHTML = "";
+          subjects.forEach((s) => {
+            const opt = document.createElement("option");
+            opt.value = s;
+            opt.textContent = s;
+            subjectSel.appendChild(opt);
+          });
+        }
+
+        function getDaySessions(day) {
+          return sessions.filter((x) => x.date === day);
+        }
+
+        function computeDayAgg(day) {
+          const ts = getDaySessions(day);
+          const by = {};
+          let total = 0;
+          for (const s of ts) {
+            by[s.subject] = (by[s.subject] || 0) + s.ms;
+            total += s.ms;
+          }
+          return { total, by, ts };
+        }
+
+        function pillHTML(subject) {
+          const c = colorOf(subject);
+          const tc = textColorForBg(c);
+          return `<span class="pill" style="border-color:${c}; background:${c}; color:${tc};">${subject}</span>`;
+        }
+
+        // ✅ Timeline constants
+        const SCALE_PX_PER_HOUR = 30; // 24h * 30px = 720px (CSS와 맞춤)
+        const PX_PER_MIN = SCALE_PX_PER_HOUR / 60;
+
+        function minutesSinceStartOfDay(iso) {
+          const d = new Date(iso); // local time
+          return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+        }
+
+        function renderTimeline(daySessions) {
+          if (!timelineGrid) return;
+
+          timelineGrid.style.height = `${24 * SCALE_PX_PER_HOUR}px`;
+          timelineGrid.innerHTML = "";
+
+          // 시간선(0~24)
+          for (let h = 0; h <= 24; h++) {
+            const y = h * SCALE_PX_PER_HOUR;
+
+            const line = document.createElement("div");
+            line.className = "tHour";
+            line.style.top = `${y}px`;
+
+            const lab = document.createElement("div");
+            lab.className = "tHourLabel";
+            lab.style.top = `${y}px`;
+            lab.textContent = `${pad(h % 24)}:00`;
+
+            timelineGrid.appendChild(line);
+            timelineGrid.appendChild(lab);
+          }
+
+          if (!daySessions || daySessions.length === 0) {
+            if (timelineLegend) timelineLegend.textContent = "세션 없음";
+            return;
+          }
+
+          // ✅ 세션 정렬
+          const items = [...daySessions].sort(
+            (a, b) => new Date(a.startISO) - new Date(b.startISO),
+          );
+
+          // ✅ 겹침 처리: lane 배정
+          const lanes = []; // 각 lane의 마지막 endMin
+          const placed = [];
+
+          for (const s of items) {
+            const startMin = minutesSinceStartOfDay(s.startISO);
+            const endMin = minutesSinceStartOfDay(s.endISO);
+
+            // 혹시 데이터 꼬임 방지
+            const a = Math.max(0, Math.min(24 * 60, startMin));
+            const b = Math.max(0, Math.min(24 * 60, endMin));
+            const st = Math.min(a, b);
+            const en = Math.max(a, b);
+
+            let lane = lanes.findIndex((lastEnd) => lastEnd <= st + 0.001);
+            if (lane === -1) {
+              lane = lanes.length;
+              lanes.push(en);
+            } else {
+              lanes[lane] = en;
+            }
+
+            placed.push({ s, st, en, lane });
+          }
+
+          const laneCount = Math.max(1, lanes.length);
+          if (timelineLegend) {
+            timelineLegend.textContent = `블록 ${items.length}개 · 동시겹침 최대 ${laneCount}개`;
+          }
+
+          // ✅ 블록 그리기
+          for (const p of placed) {
+            const { s, st, en, lane } = p;
+
+            const top = st * PX_PER_MIN;
+            const height = Math.max(28, (en - st) * PX_PER_MIN);
+
+            const leftPct = (lane / laneCount) * 100;
+            const widthPct = (1 / laneCount) * 100;
+
+            const subj = s.subject || "미분류";
+            const c = colorOf(subj);
+            const tc = textColorForBg(c);
+
+            const start = new Date(s.startISO);
+            const end = new Date(s.endISO);
+            const timeLabel = `${pad(start.getHours())}:${pad(start.getMinutes())}–${pad(end.getHours())}:${pad(end.getMinutes())}`;
+
+            const div = document.createElement("div");
+            div.className = "tEvent";
+            div.style.top = `${top}px`;
+            div.style.height = `${height}px`;
+            div.style.left = `calc(${leftPct}% + 6px)`;
+            div.style.width = `calc(${widthPct}% - 12px)`;
+            div.style.background = c;
+            div.style.color = tc;
+
+            div.innerHTML = `
+              <div class="tTitle">
+                <span>${subj}</span>
+                <span style="opacity:.9; font-weight:700;">${fmtHMS(s.ms)}</span>
+              </div>
+              <div class="tMeta">
+                <span>${timeLabel}</span>
+              </div>
+            `;
+
+            div.addEventListener("click", () => openEditModal(s.id));
+            timelineGrid.appendChild(div);
+          }
+        }
+
+        function renderDay() {
+          todayLabel.textContent = `조회: ${viewDay}`;
+          const { total, by, ts } = computeDayAgg(viewDay);
+
+          totalToday.textContent = fmtHMS(total);
+
+          // top subject
+          let top = "-";
+          let topMs = -1;
+          Object.entries(by).forEach(([k, v]) => {
+            if (v > topMs) {
+              topMs = v;
+              top = k;
+            }
+          });
+          topSubject.innerHTML =
+            top === "-"
+              ? "-"
+              : `${pillHTML(top)} <span class="muted">(${fmtHMS(topMs)})</span>`;
+
+          // breakdown bars
+          breakdown.innerHTML = "";
+          const entries = Object.entries(by).sort((a, b) => b[1] - a[1]);
+          if (entries.length === 0) {
+            breakdown.innerHTML = `<div class="muted">아직 이 날짜에 저장된 세션이 없습니다.</div>`;
+          } else {
+            for (const [sub, ms] of entries) {
+              const pct = total > 0 ? Math.round((ms / total) * 100) : 0;
+              const c = colorOf(sub);
+              const row = document.createElement("div");
+              row.style.marginBottom = "10px";
+              row.innerHTML = `
+                <div class="row" style="justify-content:space-between;">
+                  <div>${pillHTML(sub)}</div>
+                  <div class="muted">${fmtHMS(ms)} · ${pct}%</div>
+                </div>
+                <div class="bar"><div style="width:${pct}%; background:${c};"></div></div>
+              `;
+              breakdown.appendChild(row);
+            }
+          }
+
+          // sessions table
+          sessionsTbody.innerHTML = "";
+          const sorted = [...ts].sort((a, b) =>
+            (b.endISO || "").localeCompare(a.endISO || ""),
+          );
+
+          for (const s of sorted) {
+            const tr = document.createElement("tr");
+            const start = new Date(s.startISO);
+            const end = new Date(s.endISO);
+            const timeRange = `${pad(start.getHours())}:${pad(start.getMinutes())}–${pad(end.getHours())}:${pad(end.getMinutes())}`;
+
+            tr.innerHTML = `
+              <td class="muted">${timeRange}</td>
+              <td>${pillHTML(s.subject)}</td>
+              <td style="font-weight:700;">${fmtHMS(s.ms)}</td>
+              <td><button data-edit="${s.id}">수정</button></td>
+              <td><button class="danger" data-del="${s.id}">삭제</button></td>
+            `;
+            sessionsTbody.appendChild(tr);
+          }
+
+          // delete handlers
+          sessionsTbody.querySelectorAll("button[data-del]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const id = btn.getAttribute("data-del");
+              sessions = sessions.filter((x) => x.id !== id);
+              save(KEY_SESSIONS, sessions);
+              renderDay();
+            });
+          });
+
+          // edit handlers
+          sessionsTbody.querySelectorAll("button[data-edit]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const id = btn.getAttribute("data-edit");
+              openEditModal(id);
+            });
+          });
+
+          // ✅ 타임라인 렌더
+          renderTimeline(ts);
+        }
+
+        function setButtons() {
+          startBtn.disabled = running;
+          pauseBtn.disabled = !running;
+          finishBtn.disabled = !running;
+        }
+
+        function currentElapsed() {
+          if (!running) return elapsedBefore;
+          return elapsedBefore + (Date.now() - startAt);
+        }
+
+        function renderClock() {
+          clock.textContent = fmtHMS(currentElapsed());
+        }
+
+        function start() {
+          if (running) return;
+          running = true;
+          startAt = Date.now();
+          tickTimer = setInterval(renderClock, 200);
+          setButtons();
+        }
+
+        function pause() {
+          if (!running) return;
+          elapsedBefore = currentElapsed();
+          running = false;
+          startAt = null;
+          clearInterval(tickTimer);
+          tickTimer = null;
+          renderClock();
+          setButtons();
+        }
+
+        function finish() {
+          if (!running) return;
+          const ms = currentElapsed();
+          pause();
+
+          // ✅ 10초 미만은 저장 안 함
+          if (ms < 10_000) {
+            elapsedBefore = 0;
+            renderClock();
+            return;
+          }
+
+          const subj = subjectSel.value || "미분류";
+          pickColorForSubject(subj, subjectColors);
+
+          const endMs = Date.now();
+          const startMs = endMs - ms;
+
+          const parts = splitByMidnight(subj, startMs, endMs);
+
+          sessions.push(...parts);
+          save(KEY_SESSIONS, sessions);
+
+          elapsedBefore = 0;
+          renderClock();
+          renderDay();
+        }
+
+        function addSubject() {
+          const s = (newSubject.value || "").trim();
+          if (!s) return;
+          if (subjects.includes(s)) {
+            newSubject.value = "";
+            return;
+          }
+          subjects.push(s);
+          save(KEY_SUBJECTS, subjects);
+
+          pickColorForSubject(s, subjectColors);
+
+          renderSubjects();
+          subjectSel.value = s;
+          newSubject.value = "";
+          renderDay();
+        }
+
+        function clearViewDaySessions() {
+          sessions = sessions.filter((x) => x.date !== viewDay);
+          save(KEY_SESSIONS, sessions);
+          renderDay();
+        }
+
+        function resetViewDayHard() {
+          clearViewDaySessions();
+          running = false;
+          startAt = null;
+          elapsedBefore = 0;
+          clearInterval(tickTimer);
+          tickTimer = null;
+          renderClock();
+          setButtons();
+        }
+
+        // --------- Backup / Restore ----------
+        function exportBackup() {
+          const payload = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            subjects: load(KEY_SUBJECTS, ["할 일 정리", "영어", "수학"]),
+            sessions: load(KEY_SESSIONS, []),
+            colors: load(KEY_COLORS, {}),
+          };
+
+          const blob = new Blob([JSON.stringify(payload, null, 2)], {
+            type: "application/json",
+          });
+
+          const a = document.createElement("a");
+          const stamp = dayKeyFromMs(Date.now());
+          a.href = URL.createObjectURL(blob);
+          a.download = `study-timer-backup_${stamp}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
+        }
+
+        function importBackupFromText(text) {
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            alert("백업 파일이 JSON 형식이 아닙니다.");
+            return;
+          }
+
+          if (!data || typeof data !== "object") {
+            alert("백업 파일 형식이 다릅니다.");
+            return;
+          }
+
+          const nextSubjects = Array.isArray(data.subjects)
+            ? data.subjects
+            : null;
+          const nextSessions = Array.isArray(data.sessions)
+            ? data.sessions
+            : null;
+          const nextColors =
+            data.colors && typeof data.colors === "object" ? data.colors : {};
+
+          if (!nextSubjects || !nextSessions) {
+            alert(
+              "백업 파일에 subjects/sessions가 없습니다. 파일을 확인해주세요.",
+            );
+            return;
+          }
+
+          // 덮어쓰기 확인
+          const ok = confirm(
+            "현재 저장된 데이터를 백업 파일 내용으로 덮어씁니다. 계속할까요?",
+          );
+          if (!ok) return;
+
+          try {
+            save(KEY_SUBJECTS, nextSubjects);
+            save(KEY_SESSIONS, nextSessions);
+            save(KEY_COLORS, nextColors);
+          } catch {
+            alert(
+              "저장에 실패했습니다. 브라우저 정책/용량 문제일 수 있습니다.",
+            );
+            return;
+          }
+
+          // 앱 상태 갱신
+          subjects = load(KEY_SUBJECTS, nextSubjects);
+          sessions = load(KEY_SESSIONS, nextSessions);
+          subjectColors = load(KEY_COLORS, nextColors);
+
+          subjects.forEach((s) => pickColorForSubject(s, subjectColors));
+          save(KEY_COLORS, subjectColors);
+
+          renderSubjects();
+          viewDay = todayKey();
+          dayPick.value = viewDay;
+          renderDay();
+
+          alert("백업을 불러왔습니다!");
+        }
+
+        // --------- Edit modal logic ----------
+        function openEditModal(id) {
+          const s = sessions.find((x) => x.id === id);
+          if (!s) return;
+
+          editingId = id;
+          editWarn.style.display = "none";
+          editWarn.textContent = "";
+
+          editSubject.value = s.subject || "";
+          editDate.value = s.date || isoToLocalDate(s.startISO);
+          editStart.value = isoToLocalHM(s.startISO);
+          editEnd.value = isoToLocalHM(s.endISO);
+
+          editBackdrop.style.display = "flex";
+          editBackdrop.setAttribute("aria-hidden", "false");
+        }
+
+        function closeEditModal() {
+          editingId = null;
+          editBackdrop.style.display = "none";
+          editBackdrop.setAttribute("aria-hidden", "true");
+        }
+
+        function showEditWarn(msg) {
+          editWarn.textContent = msg;
+          editWarn.style.display = "block";
+        }
+
+        function saveEdit() {
+          const idx = sessions.findIndex((x) => x.id === editingId);
+          if (idx < 0) return;
+
+          const subj = (editSubject.value || "").trim() || "미분류";
+          const dateStr = editDate.value;
+          const sHM = editStart.value;
+          const eHM = editEnd.value;
+
+          if (!dateStr) return showEditWarn("날짜를 선택해주세요.");
+          if (!sHM || !eHM)
+            return showEditWarn("시작/종료 시간을 모두 입력해주세요.");
+
+          const delta = msBetweenLocal(dateStr, sHM, eHM);
+          if (delta == null) return showEditWarn("시간 형식이 다릅니다.");
+          if (delta <= 0)
+            return showEditWarn("종료 시간이 시작 시간보다 뒤여야 합니다.");
+          if (delta > 24 * 60 * 60 * 1000)
+            return showEditWarn("한 세션은 24시간을 넘길 수 없습니다.");
+
+          const startISO = buildISOFromLocal(dateStr, sHM);
+          const endISO = buildISOFromLocal(dateStr, eHM);
+          if (!startISO || !endISO)
+            return showEditWarn("시간을 다시 확인해주세요.");
+
+          pickColorForSubject(subj, subjectColors);
+
+          sessions[idx] = {
+            ...sessions[idx],
+            subject: subj,
+            date: dateStr,
+            startISO,
+            endISO,
+            ms: delta,
+          };
+
+          save(KEY_SESSIONS, sessions);
+          closeEditModal();
+          renderDay();
+        }
+
+        editBackdrop.addEventListener("click", (e) => {
+          if (e.target === editBackdrop) closeEditModal();
+        });
+        editCancel.addEventListener("click", closeEditModal);
+        editSave.addEventListener("click", saveEdit);
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && editBackdrop.style.display === "flex") {
+            closeEditModal();
+          }
+        });
+
+        // --------- Bind ----------
+        addSubjectBtn.addEventListener("click", addSubject);
+        newSubject.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") addSubject();
+        });
+
+        startBtn.addEventListener("click", start);
+        pauseBtn.addEventListener("click", pause);
+        finishBtn.addEventListener("click", finish);
+
+        clearSessionsBtn.addEventListener("click", clearViewDaySessions);
+        resetTodayBtn.addEventListener("click", resetViewDayHard);
+
+        goTodayBtn.addEventListener("click", () => {
+          viewDay = todayKey();
+          dayPick.value = viewDay;
+          renderDay();
+        });
+
+        dayPick.addEventListener("change", () => {
+          viewDay = dayPick.value || todayKey();
+          renderDay();
+        });
+
+        // backup bind
+        exportBtn?.addEventListener("click", exportBackup);
+        importBtn?.addEventListener("click", () => importFile?.click());
+        importFile?.addEventListener("change", async () => {
+          const file = importFile.files?.[0];
+          if (!file) return;
+          const text = await file.text();
+          importBackupFromText(text);
+          importFile.value = "";
+        });
+
+        let lastDay = todayKey();
+        setInterval(() => {
+          const d = todayKey();
+          if (d !== lastDay) {
+            lastDay = d;
+            if (running) pause();
+            renderDay();
+          }
+        }, 60_000);
+
+        // --------- Init ----------
+        sessions.forEach((s) =>
+          pickColorForSubject(s.subject || "미분류", subjectColors),
+        );
+
+        renderSubjects();
+        renderClock();
+        setButtons();
+
+        viewDay = todayKey();
+        dayPick.value = viewDay;
+
+        renderDay();
+
+        // ✅ 창 크기 바뀌면 타임라인만 다시 그림
+        window.addEventListener("resize", () => {
+          renderDay();
+        });
+      })();
+    </script>
+  </body>
+</html>
