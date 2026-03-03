@@ -290,6 +290,18 @@
           <label class="muted" for="subject">과목</label>
           <select id="subject"></select>
 
+          <!-- ✅ 과목 리스트 자체 수정/삭제 -->
+          <button id="renameSubject" title="선택한 과목 이름을 바꿉니다">
+            과목명 수정
+          </button>
+          <button
+            id="deleteSubject"
+            class="danger"
+            title="선택한 과목을 목록에서 삭제합니다"
+          >
+            과목 삭제
+          </button>
+
           <input
             id="newSubject"
             placeholder="과목 추가 (예: 통계, R, 영어)"
@@ -631,6 +643,9 @@
         const subjectSel = el("subject");
         const newSubject = el("newSubject");
         const addSubjectBtn = el("addSubject");
+        const renameSubjectBtn = el("renameSubject");
+        const deleteSubjectBtn = el("deleteSubject");
+
         const startBtn = el("start");
         const pauseBtn = el("pause");
         const finishBtn = el("finish");
@@ -681,7 +696,8 @@
         let viewDay = todayKey();
         let editingId = null;
 
-        function renderSubjects() {
+        function renderSubjects(selected = null) {
+          const prev = selected ?? subjectSel.value;
           subjectSel.innerHTML = "";
           subjects.forEach((s) => {
             const opt = document.createElement("option");
@@ -689,6 +705,9 @@
             opt.textContent = s;
             subjectSel.appendChild(opt);
           });
+          // 유지/복원
+          if (subjects.includes(prev)) subjectSel.value = prev;
+          else if (subjects.length > 0) subjectSel.value = subjects[0];
         }
 
         function getDaySessions(day) {
@@ -986,8 +1005,7 @@
 
           pickColorForSubject(s, subjectColors);
 
-          renderSubjects();
-          subjectSel.value = s;
+          renderSubjects(s);
           newSubject.value = "";
           renderDay();
         }
@@ -1007,6 +1025,82 @@
           tickTimer = null;
           renderClock();
           setButtons();
+        }
+
+        // --------- ✅ Subject Rename/Delete (NEW) ----------
+        function renameSelectedSubject() {
+          const oldName = subjectSel.value;
+          if (!oldName) return;
+
+          const next = prompt(
+            `과목명을 바꿉니다.\n현재: "${oldName}"\n새 이름을 입력하세요:`,
+            oldName,
+          );
+          if (next == null) return; // 취소
+          const newName = next.trim();
+          if (!newName) return alert("새 과목명이 비어있습니다.");
+          if (newName === oldName) return;
+
+          if (subjects.includes(newName)) {
+            return alert("이미 같은 이름의 과목이 있습니다.");
+          }
+
+          // 1) subjects 교체
+          subjects = subjects.map((s) => (s === oldName ? newName : s));
+          save(KEY_SUBJECTS, subjects);
+
+          // 2) colors 키 이전 (기존 색 유지)
+          if (subjectColors[oldName] && !subjectColors[newName]) {
+            subjectColors[newName] = subjectColors[oldName];
+          }
+          delete subjectColors[oldName];
+          save(KEY_COLORS, subjectColors);
+
+          // 3) sessions subject 일괄 교체 (핵심)
+          let changed = false;
+          sessions = sessions.map((x) => {
+            if (x.subject === oldName) {
+              changed = true;
+              return { ...x, subject: newName };
+            }
+            return x;
+          });
+          if (changed) save(KEY_SESSIONS, sessions);
+
+          // 4) UI 갱신
+          pickColorForSubject(newName, subjectColors);
+          renderSubjects(newName);
+          renderDay();
+        }
+
+        function deleteSelectedSubject() {
+          const name = subjectSel.value;
+          if (!name) return;
+
+          const ok = confirm(
+            `과목 "${name}"을(를) 목록에서 삭제합니다.\n(기록은 기본적으로 남겨둘 수 있어요)\n계속할까요?`,
+          );
+          if (!ok) return;
+
+          // 목록에서 삭제
+          subjects = subjects.filter((s) => s !== name);
+          save(KEY_SUBJECTS, subjects);
+
+          // 색상도 제거(선택)
+          delete subjectColors[name];
+          save(KEY_COLORS, subjectColors);
+
+          // 세션도 삭제할지 추가 확인
+          const delSessions = confirm(
+            `과목 "${name}"의 기존 세션 기록도 함께 삭제할까요?\n(취소하면 기록은 남아있고, 새 기록만 못 찍게 됩니다)`,
+          );
+          if (delSessions) {
+            sessions = sessions.filter((x) => x.subject !== name);
+            save(KEY_SESSIONS, sessions);
+          }
+
+          renderSubjects(subjects[0] || null);
+          renderDay();
         }
 
         // --------- Backup / Restore ----------
@@ -1063,7 +1157,6 @@
             return;
           }
 
-          // 덮어쓰기 확인
           const ok = confirm(
             "현재 저장된 데이터를 백업 파일 내용으로 덮어씁니다. 계속할까요?",
           );
@@ -1080,7 +1173,6 @@
             return;
           }
 
-          // 앱 상태 갱신
           subjects = load(KEY_SUBJECTS, nextSubjects);
           sessions = load(KEY_SESSIONS, nextSessions);
           subjectColors = load(KEY_COLORS, nextColors);
@@ -1183,6 +1275,9 @@
           if (e.key === "Enter") addSubject();
         });
 
+        renameSubjectBtn.addEventListener("click", renameSelectedSubject);
+        deleteSubjectBtn.addEventListener("click", deleteSelectedSubject);
+
         startBtn.addEventListener("click", start);
         pauseBtn.addEventListener("click", pause);
         finishBtn.addEventListener("click", finish);
@@ -1236,7 +1331,7 @@
 
         renderDay();
 
-        // ✅ 창 크기 바뀌면 타임라인만 다시 그림
+        // ✅ 창 크기 바뀌면 다시 그림
         window.addEventListener("resize", () => {
           renderDay();
         });
