@@ -308,14 +308,6 @@
             style="flex: 1; min-width: 220px"
           />
           <button id="addSubject">추가</button>
-
-          <button
-            class="right danger"
-            id="resetToday"
-            title="조회 날짜 기록 + 타이머까지 초기화"
-          >
-            조회날짜 초기화
-          </button>
         </div>
 
         <!-- ✅ 날짜별 조회 UI + ✅ 백업/복구 -->
@@ -656,7 +648,6 @@
         const breakdown = el("breakdown");
         const sessionsTbody = el("sessions");
         const clearSessionsBtn = el("clearSessions");
-        const resetTodayBtn = el("resetToday");
 
         const dayPick = el("dayPick");
         const goTodayBtn = el("goToday");
@@ -1283,7 +1274,6 @@
         finishBtn.addEventListener("click", finish);
 
         clearSessionsBtn.addEventListener("click", clearViewDaySessions);
-        resetTodayBtn.addEventListener("click", resetViewDayHard);
 
         goTodayBtn.addEventListener("click", () => {
           viewDay = todayKey();
