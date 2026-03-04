@@ -399,13 +399,22 @@
           <div class="card" style="border-width: 1px; border-radius: 14px">
             <div class="row" style="justify-content: space-between">
               <div class="muted">선택한 날짜 세션 로그</div>
-              <button
-                id="clearSessions"
-                class="danger"
-                title="선택한 날짜 세션 로그 전체 삭제"
-              >
-                전체 삭제
-              </button>
+
+              <div class="row" style="gap: 8px">
+                <button
+                  id="addSession"
+                  title="선택한 날짜에 세션을 직접 추가합니다"
+                >
+                  세션 추가
+                </button>
+                <button
+                  id="clearSessions"
+                  class="danger"
+                  title="선택한 날짜 세션 로그 전체 삭제"
+                >
+                  전체 삭제
+                </button>
+              </div>
             </div>
             <div style="max-height: 260px; overflow: auto; margin-top: 8px">
               <table>
@@ -680,6 +689,7 @@
         const breakdown = el("breakdown");
         const sessionsTbody = el("sessions");
         const clearSessionsBtn = el("clearSessions");
+        const addSessionBtn = el("addSession");
 
         const dayPick = el("dayPick");
         const goTodayBtn = el("goToday");
@@ -1221,6 +1231,25 @@
           editBackdrop.setAttribute("aria-hidden", "false");
         }
 
+        // ✅ 추가 모드로 모달 열기
+        function openAddModal() {
+          editingId = "__new__"; // 새로 생성 모드 표시
+          editWarn.style.display = "none";
+          editWarn.textContent = "";
+
+          // 기본값: 현재 선택된 과목 + 현재 조회 날짜 + 09:00~10:00
+          const defaultSubj = subjectSel.value || "미분류";
+          const dateStr = viewDay || todayKey();
+
+          editSubject.value = defaultSubj;
+          editDate.value = dateStr;
+          editStart.value = "09:00";
+          editEnd.value = "10:00";
+
+          editBackdrop.style.display = "flex";
+          editBackdrop.setAttribute("aria-hidden", "false");
+        }
+
         function closeEditModal() {
           editingId = null;
           editBackdrop.style.display = "none";
@@ -1233,9 +1262,6 @@
         }
 
         function saveEdit() {
-          const idx = sessions.findIndex((x) => x.id === editingId);
-          if (idx < 0) return;
-
           const subj = (editSubject.value || "").trim() || "미분류";
           const dateStr = editDate.value;
           const sHM = editStart.value;
@@ -1258,6 +1284,29 @@
             return showEditWarn("시간을 다시 확인해주세요.");
 
           pickColorForSubject(subj, subjectColors);
+
+          // ✅ 추가 모드
+          if (editingId === "__new__") {
+            sessions.push({
+              id: makeId(),
+              date: dateStr,
+              subject: subj,
+              startISO,
+              endISO,
+              ms: delta,
+            });
+            save(KEY_SESSIONS, sessions);
+            closeEditModal();
+            renderDay();
+            return;
+          }
+
+          // ✅ 수정 모드
+          const idx = sessions.findIndex((x) => x.id === editingId);
+          if (idx < 0) {
+            closeEditModal();
+            return;
+          }
 
           sessions[idx] = {
             ...sessions[idx],
@@ -1298,6 +1347,7 @@
         finishBtn.addEventListener("click", finish);
 
         clearSessionsBtn.addEventListener("click", clearViewDaySessions);
+        addSessionBtn?.addEventListener("click", openAddModal);
 
         goTodayBtn.addEventListener("click", () => {
           viewDay = todayKey();
