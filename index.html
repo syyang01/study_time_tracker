@@ -10,6 +10,9 @@
         --bg: #fff;
         --muted: #666;
         --pad: 14px;
+
+        /* ✅ 타임라인 왼쪽 시간 라벨 칸 폭 */
+        --timeline-gutter: 72px;
       }
       body {
         margin: 0;
@@ -223,17 +226,40 @@
         overflow: auto;
         background: #fff;
       }
+
+      /* ✅ 왼쪽 라벨 + 오른쪽 이벤트 영역 2컬럼 */
+      .timelineInner {
+        position: relative;
+        display: grid;
+        grid-template-columns: var(--timeline-gutter) 1fr;
+        height: 720px;
+        min-width: 640px; /* 너무 좁을 때 레이아웃 깨짐 방지 (스크롤로 해결) */
+      }
+
+      .timelineLabels {
+        position: relative;
+        height: 720px;
+        border-right: 1px solid #eee;
+        background: #fff;
+        z-index: 3; /* ✅ 블록 위로(절대 안 가려짐) */
+      }
+
       .timelineGrid {
         position: relative;
         height: 720px;
+        background: #fff;
+        z-index: 1;
       }
+
       .tHour {
         position: absolute;
         left: 0;
         right: 0;
         height: 0;
         border-top: 1px solid #eee;
+        pointer-events: none;
       }
+
       .tHourLabel {
         position: absolute;
         left: 8px;
@@ -242,7 +268,11 @@
         color: #666;
         background: #fff;
         padding: 0 6px;
+        border-radius: 8px;
+        white-space: nowrap;
+        pointer-events: none;
       }
+
       .tEvent {
         position: absolute;
         border: 1px solid rgba(0, 0, 0, 0.25);
@@ -290,7 +320,6 @@
           <label class="muted" for="subject">과목</label>
           <select id="subject"></select>
 
-          <!-- ✅ 과목 리스트 자체 수정/삭제 -->
           <button id="renameSubject" title="선택한 과목 이름을 바꿉니다">
             과목명 수정
           </button>
@@ -310,7 +339,6 @@
           <button id="addSubject">추가</button>
         </div>
 
-        <!-- ✅ 날짜별 조회 UI + ✅ 백업/복구 -->
         <div class="row" style="margin-top: 8px">
           <label class="muted" for="dayPick">조회 날짜</label>
           <input id="dayPick" type="date" />
@@ -396,7 +424,7 @@
           </div>
         </div>
 
-        <!-- ✅ Day Timeline (단 1개만 유지) -->
+        <!-- ✅ Day Timeline -->
         <div
           class="card"
           style="border-width: 1px; border-radius: 14px; margin-top: 12px"
@@ -407,7 +435,11 @@
           </div>
 
           <div class="timelineWrap" style="margin-top: 8px">
-            <div class="timelineGrid" id="timelineGrid"></div>
+            <!-- ✅ 2컬럼 구조로 변경 -->
+            <div class="timelineInner" id="timelineInner">
+              <div class="timelineLabels" id="timelineLabels"></div>
+              <div class="timelineGrid" id="timelineGrid"></div>
+            </div>
           </div>
 
           <div class="tLegend">
@@ -669,6 +701,7 @@
 
         // timeline
         const timelineGrid = el("timelineGrid");
+        const timelineLabels = el("timelineLabels");
         const timelineLegend = el("timelineLegend");
 
         // --------- State ----------
@@ -696,7 +729,6 @@
             opt.textContent = s;
             subjectSel.appendChild(opt);
           });
-          // 유지/복원
           if (subjects.includes(prev)) subjectSel.value = prev;
           else if (subjects.length > 0) subjectSel.value = subjects[0];
         }
@@ -723,7 +755,7 @@
         }
 
         // ✅ Timeline constants
-        const SCALE_PX_PER_HOUR = 30; // 24h * 30px = 720px (CSS와 맞춤)
+        const SCALE_PX_PER_HOUR = 30; // 24h * 30px = 720px
         const PX_PER_MIN = SCALE_PX_PER_HOUR / 60;
 
         function minutesSinceStartOfDay(iso) {
@@ -732,26 +764,29 @@
         }
 
         function renderTimeline(daySessions) {
-          if (!timelineGrid) return;
+          if (!timelineGrid || !timelineLabels) return;
 
-          timelineGrid.style.height = `${24 * SCALE_PX_PER_HOUR}px`;
+          const heightPx = 24 * SCALE_PX_PER_HOUR;
+          timelineGrid.style.height = `${heightPx}px`;
+          timelineLabels.style.height = `${heightPx}px`;
+
           timelineGrid.innerHTML = "";
+          timelineLabels.innerHTML = "";
 
-          // 시간선(0~24)
+          // ✅ 시간선/라벨(분리 렌더)
           for (let h = 0; h <= 24; h++) {
             const y = h * SCALE_PX_PER_HOUR;
 
             const line = document.createElement("div");
             line.className = "tHour";
             line.style.top = `${y}px`;
+            timelineGrid.appendChild(line);
 
             const lab = document.createElement("div");
             lab.className = "tHourLabel";
             lab.style.top = `${y}px`;
             lab.textContent = `${pad(h % 24)}:00`;
-
-            timelineGrid.appendChild(line);
-            timelineGrid.appendChild(lab);
+            timelineLabels.appendChild(lab);
           }
 
           if (!daySessions || daySessions.length === 0) {
@@ -772,7 +807,6 @@
             const startMin = minutesSinceStartOfDay(s.startISO);
             const endMin = minutesSinceStartOfDay(s.endISO);
 
-            // 혹시 데이터 꼬임 방지
             const a = Math.max(0, Math.min(24 * 60, startMin));
             const b = Math.max(0, Math.min(24 * 60, endMin));
             const st = Math.min(a, b);
@@ -794,7 +828,7 @@
             timelineLegend.textContent = `블록 ${items.length}개 · 동시겹침 최대 ${laneCount}개`;
           }
 
-          // ✅ 블록 그리기
+          // ✅ 블록 그리기 (오른쪽 영역에만)
           for (const p of placed) {
             const { s, st, en, lane } = p;
 
@@ -810,21 +844,28 @@
 
             const start = new Date(s.startISO);
             const end = new Date(s.endISO);
-            const timeLabel = `${pad(start.getHours())}:${pad(start.getMinutes())}–${pad(end.getHours())}:${pad(end.getMinutes())}`;
+            const timeLabel = `${pad(start.getHours())}:${pad(
+              start.getMinutes(),
+            )}–${pad(end.getHours())}:${pad(end.getMinutes())}`;
 
             const div = document.createElement("div");
             div.className = "tEvent";
             div.style.top = `${top}px`;
             div.style.height = `${height}px`;
+
+            // ✅ 이제 라벨 칸이 분리돼서, left는 오른쪽 영역 기준 퍼센트로 OK
             div.style.left = `calc(${leftPct}% + 6px)`;
             div.style.width = `calc(${widthPct}% - 12px)`;
+
             div.style.background = c;
             div.style.color = tc;
 
             div.innerHTML = `
               <div class="tTitle">
                 <span>${subj}</span>
-                <span style="opacity:.9; font-weight:700;">${fmtHMS(s.ms)}</span>
+                <span style="opacity:.9; font-weight:700;">${fmtHMS(
+                  s.ms,
+                )}</span>
               </div>
               <div class="tMeta">
                 <span>${timeLabel}</span>
@@ -854,7 +895,9 @@
           topSubject.innerHTML =
             top === "-"
               ? "-"
-              : `${pillHTML(top)} <span class="muted">(${fmtHMS(topMs)})</span>`;
+              : `${pillHTML(top)} <span class="muted">(${fmtHMS(
+                  topMs,
+                )})</span>`;
 
           // breakdown bars
           breakdown.innerHTML = "";
@@ -888,7 +931,9 @@
             const tr = document.createElement("tr");
             const start = new Date(s.startISO);
             const end = new Date(s.endISO);
-            const timeRange = `${pad(start.getHours())}:${pad(start.getMinutes())}–${pad(end.getHours())}:${pad(end.getMinutes())}`;
+            const timeRange = `${pad(start.getHours())}:${pad(
+              start.getMinutes(),
+            )}–${pad(end.getHours())}:${pad(end.getMinutes())}`;
 
             tr.innerHTML = `
               <td class="muted">${timeRange}</td>
@@ -900,7 +945,6 @@
             sessionsTbody.appendChild(tr);
           }
 
-          // delete handlers
           sessionsTbody.querySelectorAll("button[data-del]").forEach((btn) => {
             btn.addEventListener("click", () => {
               const id = btn.getAttribute("data-del");
@@ -910,7 +954,6 @@
             });
           });
 
-          // edit handlers
           sessionsTbody.querySelectorAll("button[data-edit]").forEach((btn) => {
             btn.addEventListener("click", () => {
               const id = btn.getAttribute("data-edit");
@@ -961,7 +1004,6 @@
           const ms = currentElapsed();
           pause();
 
-          // ✅ 10초 미만은 저장 안 함
           if (ms < 10_000) {
             elapsedBefore = 0;
             renderClock();
@@ -1007,18 +1049,7 @@
           renderDay();
         }
 
-        function resetViewDayHard() {
-          clearViewDaySessions();
-          running = false;
-          startAt = null;
-          elapsedBefore = 0;
-          clearInterval(tickTimer);
-          tickTimer = null;
-          renderClock();
-          setButtons();
-        }
-
-        // --------- ✅ Subject Rename/Delete (NEW) ----------
+        // --------- ✅ Subject Rename/Delete ----------
         function renameSelectedSubject() {
           const oldName = subjectSel.value;
           if (!oldName) return;
@@ -1027,7 +1058,7 @@
             `과목명을 바꿉니다.\n현재: "${oldName}"\n새 이름을 입력하세요:`,
             oldName,
           );
-          if (next == null) return; // 취소
+          if (next == null) return;
           const newName = next.trim();
           if (!newName) return alert("새 과목명이 비어있습니다.");
           if (newName === oldName) return;
@@ -1036,18 +1067,15 @@
             return alert("이미 같은 이름의 과목이 있습니다.");
           }
 
-          // 1) subjects 교체
           subjects = subjects.map((s) => (s === oldName ? newName : s));
           save(KEY_SUBJECTS, subjects);
 
-          // 2) colors 키 이전 (기존 색 유지)
           if (subjectColors[oldName] && !subjectColors[newName]) {
             subjectColors[newName] = subjectColors[oldName];
           }
           delete subjectColors[oldName];
           save(KEY_COLORS, subjectColors);
 
-          // 3) sessions subject 일괄 교체 (핵심)
           let changed = false;
           sessions = sessions.map((x) => {
             if (x.subject === oldName) {
@@ -1058,7 +1086,6 @@
           });
           if (changed) save(KEY_SESSIONS, sessions);
 
-          // 4) UI 갱신
           pickColorForSubject(newName, subjectColors);
           renderSubjects(newName);
           renderDay();
@@ -1073,15 +1100,12 @@
           );
           if (!ok) return;
 
-          // 목록에서 삭제
           subjects = subjects.filter((s) => s !== name);
           save(KEY_SUBJECTS, subjects);
 
-          // 색상도 제거(선택)
           delete subjectColors[name];
           save(KEY_COLORS, subjectColors);
 
-          // 세션도 삭제할지 추가 확인
           const delSessions = confirm(
             `과목 "${name}"의 기존 세션 기록도 함께 삭제할까요?\n(취소하면 기록은 남아있고, 새 기록만 못 찍게 됩니다)`,
           );
@@ -1321,7 +1345,6 @@
 
         renderDay();
 
-        // ✅ 창 크기 바뀌면 다시 그림
         window.addEventListener("resize", () => {
           renderDay();
         });
