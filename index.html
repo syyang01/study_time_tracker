@@ -829,11 +829,12 @@
             (a, b) => new Date(a.startISO) - new Date(b.startISO),
           );
 
-          // ✅ 겹침 처리: lane 배정
-          const lanes = []; // 각 lane의 마지막 endMin
-          const placed = [];
+          // ✅ 겹침 계산: min-height(화면상 겹침)까지 반영
+          const MIN_EVENT_PX = 28; // .tEvent min-height와 동일
+          const MIN_EVENT_MIN = MIN_EVENT_PX / PX_PER_MIN;
 
-          for (const s of items) {
+          // 1) 각 세션을 (st,en,effectiveEnd)로 정규화
+          const norm = items.map((s) => {
             const startMin = minutesSinceStartOfDay(s.startISO);
             const endMin = minutesSinceStartOfDay(s.endISO);
 
@@ -842,25 +843,72 @@
             const st = Math.min(a, b);
             const en = Math.max(a, b);
 
-            let lane = lanes.findIndex((lastEnd) => lastEnd <= st + 0.001);
-            if (lane === -1) {
-              lane = lanes.length;
-              lanes.push(en);
-            } else {
-              lanes[lane] = en;
+            const durMin = Math.max(0, en - st);
+            const effectiveEnd = st + Math.max(durMin, MIN_EVENT_MIN);
+
+            return { s, st, en, effectiveEnd };
+          });
+
+          // 2) "겹치는 구간" 단위로 클러스터(묶음) 만들기
+          const clusters = [];
+          let curCluster = [];
+          let curEnd = -Infinity;
+
+          for (const it of norm) {
+            if (curCluster.length === 0) {
+              curCluster = [it];
+              curEnd = it.effectiveEnd;
+              continue;
             }
 
-            placed.push({ s, st, en, lane });
+            if (it.st <= curEnd + 0.001) {
+              curCluster.push(it);
+              curEnd = Math.max(curEnd, it.effectiveEnd);
+            } else {
+              clusters.push(curCluster);
+              curCluster = [it];
+              curEnd = it.effectiveEnd;
+            }
+          }
+          if (curCluster.length) clusters.push(curCluster);
+
+          // 3) 각 클러스터 안에서만 lane 배정 (=> 폭도 클러스터별)
+          const placed = [];
+          let maxLaneCount = 1;
+
+          for (const group of clusters) {
+            const lanes = []; // lane별 마지막 effectiveEnd
+            const groupPlaced = [];
+
+            for (const it of group) {
+              const { s, st, en, effectiveEnd } = it;
+
+              let lane = lanes.findIndex((lastEnd) => lastEnd <= st + 0.001);
+              if (lane === -1) {
+                lane = lanes.length;
+                lanes.push(effectiveEnd);
+              } else {
+                lanes[lane] = effectiveEnd;
+              }
+
+              groupPlaced.push({ s, st, en, lane });
+            }
+
+            const laneCount = Math.max(1, lanes.length);
+            maxLaneCount = Math.max(maxLaneCount, laneCount);
+
+            for (const p of groupPlaced) {
+              placed.push({ ...p, laneCount });
+            }
           }
 
-          const laneCount = Math.max(1, lanes.length);
           if (timelineLegend) {
-            timelineLegend.textContent = `블록 ${items.length}개 · 동시겹침 최대 ${laneCount}개`;
+            timelineLegend.textContent = `블록 ${items.length}개 · 동시겹침 최대 ${maxLaneCount}개`;
           }
 
           // ✅ 블록 그리기: "퍼센트"로 나눠서 한 화면에 다 보이게 (가로 스크롤 없음)
           for (const p of placed) {
-            const { s, st, en, lane } = p;
+            const { s, st, en, lane, laneCount } = p; // ✅ FIX: laneCount 포함
 
             const top = st * PX_PER_MIN;
             const height = Math.max(28, (en - st) * PX_PER_MIN);
@@ -884,9 +932,9 @@
             div.style.height = `${height}px`;
 
             // ✅ gutter는 이미 분리되어 있으니, 오른쪽 영역 기준 %로 배치
-            // ✅ 좌우 여백 6px 넣고 겹치지 않게
-            div.style.left = `calc(${leftPct}% + 6px)`;
-            div.style.width = `calc(${widthPct}% - 12px)`;
+            // ✅ 좌우 여백 4px
+            div.style.left = `calc(${leftPct}% + 4px)`;
+            div.style.width = `calc(${widthPct}% - 8px)`;
 
             div.style.background = c;
             div.style.color = tc;
