@@ -220,10 +220,16 @@
       /* ✅ Day Timeline (24h) */
       .timelineWrap {
         position: relative;
-        height: 720px; /* 24h * 30px */
+
+        /* ✅ 고정 높이 제거 → 24시간 전체가 그대로 드러남 */
+        height: auto;
+
         border: 1px solid #ddd;
         border-radius: 14px;
-        overflow: auto;
+
+        /* ✅ 내부 스크롤 제거 */
+        overflow: visible;
+
         background: #fff;
       }
 
@@ -232,8 +238,12 @@
         position: relative;
         display: grid;
         grid-template-columns: var(--timeline-gutter) 1fr;
+
+        /* 24h 전체 높이 */
         height: 720px;
-        min-width: 640px; /* 너무 좁을 때 레이아웃 깨짐 방지 (스크롤로 해결) */
+
+        min-width: 0;
+        width: 100%;
       }
 
       .timelineLabels {
@@ -241,7 +251,7 @@
         height: 720px;
         border-right: 1px solid #eee;
         background: #fff;
-        z-index: 3; /* ✅ 블록 위로(절대 안 가려짐) */
+        z-index: 3;
       }
 
       .timelineGrid {
@@ -249,6 +259,10 @@
         height: 720px;
         background: #fff;
         z-index: 1;
+
+        /* ✅ 가로 스크롤 원인 제거 */
+        min-width: 0;
+        width: 100%;
       }
 
       .tHour {
@@ -444,7 +458,6 @@
           </div>
 
           <div class="timelineWrap" style="margin-top: 8px">
-            <!-- ✅ 2컬럼 구조로 변경 -->
             <div class="timelineInner" id="timelineInner">
               <div class="timelineLabels" id="timelineLabels"></div>
               <div class="timelineGrid" id="timelineGrid"></div>
@@ -710,6 +723,7 @@
         const editSave = el("editSave");
 
         // timeline
+        const timelineInner = el("timelineInner");
         const timelineGrid = el("timelineGrid");
         const timelineLabels = el("timelineLabels");
         const timelineLegend = el("timelineLegend");
@@ -780,10 +794,16 @@
           timelineGrid.style.height = `${heightPx}px`;
           timelineLabels.style.height = `${heightPx}px`;
 
+          // ✅ 항상 가로폭 100% 유지 (가로 스크롤 제거)
+          if (timelineInner) {
+            timelineInner.style.gridTemplateColumns = `var(--timeline-gutter) 1fr`;
+          }
+          timelineGrid.style.width = "100%";
+
           timelineGrid.innerHTML = "";
           timelineLabels.innerHTML = "";
 
-          // ✅ 시간선/라벨(분리 렌더)
+          // ✅ 시간선/라벨
           for (let h = 0; h <= 24; h++) {
             const y = h * SCALE_PX_PER_HOUR;
 
@@ -838,7 +858,7 @@
             timelineLegend.textContent = `블록 ${items.length}개 · 동시겹침 최대 ${laneCount}개`;
           }
 
-          // ✅ 블록 그리기 (오른쪽 영역에만)
+          // ✅ 블록 그리기: "퍼센트"로 나눠서 한 화면에 다 보이게 (가로 스크롤 없음)
           for (const p of placed) {
             const { s, st, en, lane } = p;
 
@@ -863,7 +883,8 @@
             div.style.top = `${top}px`;
             div.style.height = `${height}px`;
 
-            // ✅ 이제 라벨 칸이 분리돼서, left는 오른쪽 영역 기준 퍼센트로 OK
+            // ✅ gutter는 이미 분리되어 있으니, 오른쪽 영역 기준 %로 배치
+            // ✅ 좌우 여백 6px 넣고 겹치지 않게
             div.style.left = `calc(${leftPct}% + 6px)`;
             div.style.width = `calc(${widthPct}% - 12px)`;
 
@@ -873,9 +894,7 @@
             div.innerHTML = `
               <div class="tTitle">
                 <span>${subj}</span>
-                <span style="opacity:.9; font-weight:700;">${fmtHMS(
-                  s.ms,
-                )}</span>
+                <span style="opacity:.9; font-weight:700;">${fmtHMS(s.ms)}</span>
               </div>
               <div class="tMeta">
                 <span>${timeLabel}</span>
@@ -1233,11 +1252,10 @@
 
         // ✅ 추가 모드로 모달 열기
         function openAddModal() {
-          editingId = "__new__"; // 새로 생성 모드 표시
+          editingId = "__new__";
           editWarn.style.display = "none";
           editWarn.textContent = "";
 
-          // 기본값: 현재 선택된 과목 + 현재 조회 날짜 + 09:00~10:00
           const defaultSubj = subjectSel.value || "미분류";
           const dateStr = viewDay || todayKey();
 
@@ -1285,7 +1303,6 @@
 
           pickColorForSubject(subj, subjectColors);
 
-          // ✅ 추가 모드
           if (editingId === "__new__") {
             sessions.push({
               id: makeId(),
@@ -1301,7 +1318,6 @@
             return;
           }
 
-          // ✅ 수정 모드
           const idx = sessions.findIndex((x) => x.id === editingId);
           if (idx < 0) {
             closeEditModal();
